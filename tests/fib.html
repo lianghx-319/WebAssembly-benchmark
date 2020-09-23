@@ -1,145 +1,162 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<style>
-textarea {
-  width: 640px;
-}
-</style>
-<script src="fib.js"></script>
-<script id="js_code">
-function jsFib(n) {
-  if (n === 1) return 1;
-  if (n === 2) return 1;
-  return jsFib(n-1) + jsFib(n-2);
-}
-</script>
-<script id="ws_instantiate_code">
-var module, functions = {};
-fetch('fib.wasm')
-  .then(response => response.arrayBuffer())
-  .then(buffer => new Uint8Array(buffer))
-  .then(binary => {
-    var moduleArgs = {
-      wasmBinary: binary,
-      onRuntimeInitialized: function () {
-        functions.fib =
-          module.cwrap('fib',
-                       'number',
-                       ['number']);
-        onReady();
+  <style>
+    textarea {
+      width: 640px;
+    }
+  </style>
+  <script src="/js/wasm_exec.js"></script>
+  <script src="fib.js"></script>
+  <script id="js_code">
+    function jsFib(n) {
+      if (n === 1) return 1;
+      if (n === 2) return 1;
+      return jsFib(n - 1) + jsFib(n - 2);
+    }
+  </script>
+  <script id="ws_instantiate_code">
+    var module, functions = {};
+    var go = new Go();
+    Promise.all([fetch('fib.wasm'), fetch("/src/fib/main.wasm")])
+      .then(([cWasm, goWasm]) => Promise.all([cWasm.arrayBuffer(), goWasm.arrayBuffer()]))
+      .then(([cBuffer, goBuffer]) => {
+        return WebAssembly.instantiate(goBuffer, go.importObject)
+          .then(result => { go.run(result.instance) })
+          .then(() => new Uint8Array(cBuffer));
+      })
+      .then((binary) => {
+        var moduleArgs = {
+          wasmBinary: binary,
+          onRuntimeInitialized: function () {
+            functions.fib =
+              module.cwrap('fib',
+                'number',
+                ['number']);
+            onReady();
+          }
+        };
+        module = Module(moduleArgs);
+      })
+  </script>
+  <script id="test_code">
+    function start() {
+      document.getElementById('run_button').disabled = true;
+
+      var num = 0x28;
+      var loop = 10;
+
+      var jsPerformance = document.getElementById('js_performance');
+      var cPerformance = document.getElementById('c_performance');
+      var goPerformance = document.getElementById('go_performance');
+      var cComparison = document.getElementById('c_comparison');
+      var goComparison = document.getElementById('go_comparison');
+
+      jsPerformance.innerText = '';
+      cPerformance.innerText = '';
+      goPerformance.innerText = '';
+      cComparison.innerText = '';
+      goComparison.innerText = '';
+
+      function checkFunctionality(n) {
+        var jsResult = jsFib(n);
+        var cResult = functions.fib(n);
+        var goResult = goFunc(n);
+        return jsResult === cResult && jsResult === goResult;
       }
-    };
-    module = Module(moduleArgs);
-  });
-</script>
-<script id="test_code">
-function start() {
-  document.getElementById('run_button').disabled = true;
 
-  var num = 0x28;
-  var loop = 10;
+      function run(func, n, loop) {
+        func(n); // warm-up
+        var startTime = performance.now();
+        for (var i = 0; i < loop; i++) {
+          func(n);
+        }
+        var endTime = performance.now();
+        return ((endTime - startTime) / loop).toFixed(4);
+      }
 
-  var jsPerformance = document.getElementById('js_performance');
-  var wsPerformance = document.getElementById('ws_performance');
-  var comparison = document.getElementById('comparison');
-
-  jsPerformance.innerText = '';
-  wsPerformance.innerText = '';
-  comparison.innerText = '';
-
-  function checkFunctionality(n) {
-    return jsFib(n) === functions.fib(n);
-  }
-
-  function run(func, n, loop) {
-    func(n); // warm-up
-    var startTime = performance.now();
-    for (var i = 0; i < loop; i++) {
-      func(n);
-    }
-    var endTime = performance.now();
-    return ((endTime - startTime) / loop).toFixed(4);
-  }
-
-  // don't use Promise for the non Promise support browsers so far.
-  setTimeout(function () {
-    if (! checkFunctionality(num)) {
-      document.getElementById('message').innerText =
-       'Two functions seem not equeal';
-      document.getElementById('run_button').disabled = false;
-      return;
-    }
-    setTimeout(function () {
-      jsPerformance.innerText = run(jsFib, num, loop);
+      // don't use Promise for the non Promise support browsers so far.
       setTimeout(function () {
-        wsPerformance.innerText = run(functions.fib, num, loop);
-        comparison.innerText =
-          (Number(jsPerformance.innerText) /
-             Number(wsPerformance.innerText)).toFixed(4);
-        document.getElementById('message').innerText = 'Done';
-        document.getElementById('run_button').disabled = false;
+        if (!checkFunctionality(num)) {
+          document.getElementById('message').innerText =
+            'Two functions seem not equeal';
+          document.getElementById('run_button').disabled = false;
+          return;
+        }
+        setTimeout(function () {
+          jsPerformance.innerText = run(jsFib, num, loop);
+          setTimeout(function () {
+            cPerformance.innerText = run(functions.fib, num, loop);
+            cComparison.innerText = (Number(jsPerformance.innerText) /
+              Number(cPerformance.innerText)).toFixed(4);
+            setTimeout(function () {
+              goPerformance.innerText = run(goFunc, num, loop);
+              goComparison.innerText = (Number(jsPerformance.innerText) /
+                Number(goPerformance.innerText)).toFixed(4);
+              document.getElementById('message').innerText = 'Done';
+              document.getElementById('run_button').disabled = false;
+            })
+            document.getElementById('message').innerText = 'Running Go WebAssembly';
+          });
+          document.getElementById('message').innerText = 'Running C/C++ WebAssembly';
+        });
+        document.getElementById('message').innerText = 'Running JavaScript';
       });
-      document.getElementById('message').innerText = 'Running WebAssembly';
-    });
-    document.getElementById('message').innerText = 'Running JavaScript';
-  });
 
-  document.getElementById('message').innerText = 'Checking equality';
-}
-</script>
-<script>
-function onReady() {
-  document.getElementById('run_button').disabled = false;
-  document.getElementById('message').innerText = 'Ready';
-}
+      document.getElementById('message').innerText = 'Checking equality';
+    }
+  </script>
+  <script>
+    function onReady() {
+      document.getElementById('run_button').disabled = false;
+      document.getElementById('message').innerText = 'Ready';
+    }
 
-function init() {
-  putCode('test_code_area', document.getElementById('test_code').text.trim());
-  putCode('js_code_area', document.getElementById('js_code').text.trim());
+    function init() {
+      putCode('test_code_area', document.getElementById('test_code').text.trim());
+      putCode('js_code_area', document.getElementById('js_code').text.trim());
 
-  loadTextFile('fib.c', function(text) {
-    putCode('ws_code_area', text.trim());
-  });
+      loadTextFile('fib.c', function (text) {
+        putCode('ws_code_area', text.trim());
+      });
 
-  loadTextFile('fib.sh', function(text) {
-    putCode('sh_code_area', text.trim());
-  });
+      loadTextFile('/src/fib/main.go', function (text) {
+        putCode('go_code_area', text.trim());
+      });
+    }
 
-  putCode('ws_instantiate_code_area',
-          document.getElementById('ws_instantiate_code').text.trim());
-}
+    function loadTextFile(url, callback) {
+      var request = new XMLHttpRequest();
+      request.open('GET', url);
+      request.responseType = 'text';
+      request.onload = function (event) {
+        callback(request.response);
+      };
+      request.send();
+    }
 
-function loadTextFile(url, callback) {
-  var request = new XMLHttpRequest();
-  request.open('GET', url);
-  request.responseType = 'text';
-  request.onload = function (event) {
-    callback(request.response);
-  };
-  request.send();
-}
+    function putCode(textareaId, code) {
+      var textarea = document.getElementById(textareaId);
+      textarea.value = code;
+      textarea.setAttribute('rows', code.split('\n').length);
+    }
 
-function putCode(textareaId, code) {
-  var textarea = document.getElementById(textareaId);
-  textarea.value = code;
-  textarea.setAttribute('rows', code.split('\n').length);
-}
-
-function switchDisplay(div) {
-  var textarea = div.getElementsByTagName('textarea')[0];
-  var p = div.getElementsByTagName('p')[0];
-  p.textContent = p.textContent.slice(2);
-  if (textarea.style.display === 'none') {
-    textarea.style.display = '';
-    p.textContent = '- ' + p.textContent;
-  } else {
-    textarea.style.display = 'none';
-    p.textContent = '+ ' + p.textContent;
-  }
-}
-</script>
+    function switchDisplay(div) {
+      var textarea = div.getElementsByTagName('textarea')[0];
+      var p = div.getElementsByTagName('p')[0];
+      p.textContent = p.textContent.slice(2);
+      if (textarea.style.display === 'none') {
+        textarea.style.display = '';
+        p.textContent = '- ' + p.textContent;
+      } else {
+        textarea.style.display = 'none';
+        p.textContent = '+ ' + p.textContent;
+      }
+    }
+  </script>
 </head>
+
 <body onload="init()">
   <div>
     <p>
@@ -149,8 +166,10 @@ function switchDisplay(div) {
     <p>
       Result (average [ms])<br />
       JavaScript: <span id="js_performance"></span><br />
-      WebAssembly: <span id="ws_performance"></span><br />
-      JavaScript/WebAssembly: <span id="comparison"></span><br />
+      C/C++ WebAssembly: <span id="c_performance"></span><br />
+      Go WebAssembly: <span id="go_performance"></span><br />
+      JavaScript/C++WebAssembly: <span id="c_comparison"></span><br />
+      JavaScript/GoWebAssembly: <span id="go_comparison"></span><br />
     </p>
   </div>
   <div>
@@ -166,12 +185,9 @@ function switchDisplay(div) {
     <p><textarea id="ws_code_area" readonly></textarea></p>
   </div>
   <div>
-    <p onclick="switchDisplay(this.parentNode)">+ WebAssembly Compile shell script</p>
-    <p><textarea id="sh_code_area" readonly style="display:none"></textarea></p>
-  </div>
-  <div>
-    <p onclick="switchDisplay(this.parentNode)">+ WebAssembly Instantiation code</p>
-    <p><textarea id="ws_instantiate_code_area" readonly style="display:none"></textarea></p>
+    <p onclick="switchDisplay(this.parentNode)">+ WebAssembly Go code</p>
+    <p><textarea id="go_code_area" readonly style="display:none"></textarea></p>
   </div>
 </body>
+
 </html>
