@@ -7,7 +7,7 @@
       width: 640px;
     }
   </style>
-  <script src="/js/wasm_exec.js"></script>
+  <script src="js/wasm_exec.js"></script>
   <script src="fib.js"></script>
   <script id="js_code">
     function jsFib(n) {
@@ -19,7 +19,7 @@
   <script id="ws_instantiate_code">
     var module, functions = {};
     var go = new Go();
-    Promise.all([fetch('fib.wasm'), fetch("/src/fib/main.wasm")])
+    Promise.all([fetch('fib.wasm'), fetch("src/fib/main.wasm")])
       .then(([cWasm, goWasm]) => Promise.all([cWasm.arrayBuffer(), goWasm.arrayBuffer()]))
       .then(([cBuffer, goBuffer]) => {
         return WebAssembly.instantiate(goBuffer, go.importObject)
