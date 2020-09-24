@@ -7,8 +7,8 @@
       width: 640px;
     }
   </style>
-  <script src="js/wasm_exec.js"></script>
-  <script src="sumInt.js"></script>
+  <script src="/WebAssembly-benchmark/js/wasm_exec.js"></script>
+  <script src="/WebAssembly-benchmark/tests/sumInt.js"></script>
   <script id="js_code">
     function jsSumInt(array, n) {
       var s = 0;
@@ -21,7 +21,7 @@
   <script id="ws_instantiate_code">
     var module, functions = {};
     var go = new Go();
-    Promise.all([fetch('sumInt.wasm'), fetch("src/sumInt/main.wasm")])
+    Promise.all([fetch('/WebAssembly-benchmark/tests/sumInt.wasm'), fetch("/WebAssembly-benchmark/src/sumInt/main.wasm")])
       .then(([cWasm, goWasm]) => Promise.all([cWasm.arrayBuffer(), goWasm.arrayBuffer()]))
       .then(([cBuffer, goBuffer]) => {
         return WebAssembly.instantiate(goBuffer, go.importObject)
@@ -142,11 +142,11 @@
       putCode('test_code_area', document.getElementById('test_code').text.trim());
       putCode('js_code_area', document.getElementById('js_code').text.trim());
 
-      loadTextFile('sumInt.c', function (text) {
+      loadTextFile('/WebAssembly-benchmark/tests/sumInt.c', function (text) {
         putCode('ws_code_area', text.trim());
       });
 
-      loadTextFile('src/sumInt/main.go', function (text) {
+      loadTextFile('/WebAssembly-benchmark/src/sumInt/main.go', function (text) {
         putCode('go_code_area', text.trim());
       });
     }

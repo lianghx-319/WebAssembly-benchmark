@@ -7,8 +7,8 @@
       width: 640px;
     }
   </style>
-  <script src="js/wasm_exec.js"></script>
-  <script src="fib.js"></script>
+  <script src="/WebAssembly-benchmark/js/wasm_exec.js"></script>
+  <script src="/WebAssembly-benchmark/tests/fib.js"></script>
   <script id="js_code">
     function jsFib(n) {
       if (n === 1) return 1;
@@ -19,7 +19,7 @@
   <script id="ws_instantiate_code">
     var module, functions = {};
     var go = new Go();
-    Promise.all([fetch('fib.wasm'), fetch("src/fib/main.wasm")])
+    Promise.all([fetch('/WebAssembly-benchmark/tests/fib.wasm'), fetch("/WebAssembly-benchmark/src/fib/main.wasm")])
       .then(([cWasm, goWasm]) => Promise.all([cWasm.arrayBuffer(), goWasm.arrayBuffer()]))
       .then(([cBuffer, goBuffer]) => {
         return WebAssembly.instantiate(goBuffer, go.importObject)
@@ -117,11 +117,11 @@
       putCode('test_code_area', document.getElementById('test_code').text.trim());
       putCode('js_code_area', document.getElementById('js_code').text.trim());
 
-      loadTextFile('fib.c', function (text) {
+      loadTextFile('/WebAssembly-benchmark/tests/fib.c', function (text) {
         putCode('ws_code_area', text.trim());
       });
 
-      loadTextFile('/src/fib/main.go', function (text) {
+      loadTextFile('/WebAssembly-benchmark/src/fib/main.go', function (text) {
         putCode('go_code_area', text.trim());
       });
     }
